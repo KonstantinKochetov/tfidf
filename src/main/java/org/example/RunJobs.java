@@ -13,15 +13,16 @@ import org.apache.hadoop.util.ToolRunner;
 
 
 import org.apache.hadoop.fs.Path;
+import org.example.*;
 
 import java.util.HashMap;
 
 public class RunJobs extends Configured implements Tool {
 
-    @Override
+    String BASE_INPUT_PATH = "/tfidf/data/input/";
+    String BASE_OUTPUT_PATH = "/tfidf/data/output/";
+
     public int run(String[] args) throws Exception {
-        String BASE_INPUT_PATH = "/tfidf/data/input/";
-        String BASE_OUTPUT_PATH = "/tfidf/data/output/";
 
         Configuration config = getConf();
         FileSystem fileSystem = FileSystem.get(config);
@@ -30,7 +31,7 @@ public class RunJobs extends Configured implements Tool {
 
         // Processing each file in the input directory
         RemoteIterator<LocatedFileStatus> fileIterator = fileSystem.listFiles(new Path(BASE_INPUT_PATH), true);
-        while(fileIterator.hasNext()){
+        while (fileIterator.hasNext()) {
             LocatedFileStatus fileStatus = fileIterator.next();
             String language = fileStatus.getPath().getParent().getName();
 
@@ -44,36 +45,49 @@ public class RunJobs extends Configured implements Tool {
             languagePaths.put(language, filePaths);
         }
 
-        // Executing jobs for each language
-        for (String language : languagePaths.keySet()) {
-            HashMap<String, String> paths = languagePaths.get(language);
+        for (String currentLanguage : languagePaths.keySet()) {
+            config = getConf();
+            HashMap<String, String> currentLanguageMap = languagePaths.get(currentLanguage);
 
-            executeJob(config, language, paths.get("INPUT"), paths.get("OUTPUT_JOB_1"),
-                    WordFrequencyOneMapper.class, WordFrequencyOneReducer.class);
-            executeJob(config, language, paths.get("OUTPUT_JOB_1"), paths.get("OUTPUT_JOB_2"),
-                    WordCountsTwoMapper.class, WordCountsTwoReducer.class);
-            executeJob(config, language, paths.get("OUTPUT_JOB_2"), paths.get("OUTPUT_JOB_3"),
-                    WordsInCorpusAndTfidfThreeMapper.class, WordsInCorpusAndTfidfThreeReducer.class);
+            Job job1 = executeJob(1, config, currentLanguage, currentLanguageMap.get("INPUT"), currentLanguageMap.get("OUTPUT_JOB_1"),
+                    WordFrequencyOneMapper.class, WordFrequencyOneReducer.class, Text.class, IntWritable.class);
+            job1.waitForCompletion(true);
+
+            Job job2 = executeJob(2, config, currentLanguage, currentLanguageMap.get("OUTPUT_JOB_1"), currentLanguageMap.get("OUTPUT_JOB_2"),
+                    WordCountsTwoMapper.class, WordCountsTwoReducer.class, Text.class, Text.class);
+            job2.waitForCompletion(true);
+
+            Job job3 = executeJob(3, config, currentLanguage, currentLanguageMap.get("OUTPUT_JOB_2"), currentLanguageMap.get("OUTPUT_JOB_3"),
+                    WordsInCorpusAndTfidfThreeMapper.class, WordsInCorpusAndTfidfThreeReducer.class, Text.class, Text.class);
+
+            Path inputPath = new Path(currentLanguageMap.get("INPUT"));
+            FileSystem fs_2 = inputPath.getFileSystem(config);
+            FileStatus[] stat = fs_2.listStatus(inputPath);
+            job3.setJobName(String.valueOf(stat.length));
+            job3.waitForCompletion(true);
         }
 
         return 0;
     }
 
-    private void executeJob(Configuration config, String language, String inputPath,
-                            String outputPath, Class mapperClass, Class reducerClass) throws Exception {
-        Job job = Job.getInstance(config, language + " Processing");
+
+    private Job executeJob(int idx, Configuration config, String language, String inputPath,
+                            String outputPath, Class mapperClass, Class reducerClass,
+                            Class<?> outputKeyClass, Class<?> outputValueClass) throws Exception {
+        Job job = new Job(config, language + " Processing " + "input: " + inputPath);
         job.setJarByClass(RunJobs.class);
         job.setMapperClass(mapperClass);
         job.setReducerClass(reducerClass);
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
+        if (idx == 1) job.setCombinerClass(reducerClass);
+        job.setOutputKeyClass(outputKeyClass);
+        job.setOutputValueClass(outputValueClass);
         FileInputFormat.addInputPath(job, new Path(inputPath));
         FileOutputFormat.setOutputPath(job, new Path(outputPath));
-        job.waitForCompletion(true);
+        return job;
     }
 
     public static void main(String[] args) throws Exception {
-        int res = ToolRunner.run(new Configuration(), new RunJobs(), args);
+        int res = ToolRunner.run(new Configuration(), new org.example.RunJobs(), args);
         System.exit(res);
     }
 }

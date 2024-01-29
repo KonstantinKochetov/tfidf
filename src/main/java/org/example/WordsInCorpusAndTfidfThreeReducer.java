@@ -37,14 +37,9 @@ public class WordsInCorpusAndTfidfThreeReducer extends Reducer<Text, Text, Text,
         for (String document : tempFrequencies.keySet()) {
             String[] wordFrequenceAndTotalWords = tempFrequencies.get(document).split("/");
 
-            //Term frequency is the quocient of the number of terms in document and the total number of terms in doc
             double tf = Double.valueOf(Double.valueOf(wordFrequenceAndTotalWords[0])
                     / Double.valueOf(wordFrequenceAndTotalWords[1]));
-
-            //interse document frequency quocient between the number of docs in corpus and number of docs the term appears
             double idf = (double) numberOfDocumentsInCorpus / (double) numberOfDocumentsInCorpusWhereKeyAppears;
-
-            //given that log(10) = 0, just consider the term frequency in documents
             double tfIdf = numberOfDocumentsInCorpus == numberOfDocumentsInCorpusWhereKeyAppears ?
                     tf : tf * Math.log10(idf);
 

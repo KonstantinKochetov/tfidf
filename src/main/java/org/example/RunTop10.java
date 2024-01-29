@@ -6,7 +6,7 @@ import java.util.regex.*;
 
 public class RunTop10 {
     public static void main(String[] args) {
-        String[] fileNames = {"english.txt", "german.txt", "french.txt", "italien.txt", "spanish.txt", "dutch.txt", "russian.txt", "ukrainian.txt"};
+        String[] fileNames = {"english.txt", "german.txt", "french.txt", "italian.txt", "spanish.txt", "dutch.txt", "russian.txt", "ukrainian.txt"};
 
         for (String fileName : fileNames) {
             System.out.println("Top 10 words for " + fileName + ":");
